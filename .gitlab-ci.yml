@@ -1,0 +1,68 @@
+# Compass AI pipeline.
+#
+# Adapted from tests/e2e/ci/gitlab-e2e.yml for this project's single environment.
+#
+# `prod` is marked `protected: true` in environments/prod.json — it is a real org
+# with real data. The e2e job therefore runs ONLY on a schedule or a manual trigger,
+# never automatically on a merge request. Add a non-protected environment
+# (`fusebase env add prod-test --backend prod --org <orgId>`) and this job can run
+# per-MR against that instead.
+#
+# CI/CD variables to configure (Settings -> CI/CD -> Variables, masked):
+#   GATE_MCP_TOKEN_PROD   mint with `fusebase env tokens --env prod`, copy from .env.prod
+#
+# Magic-link sign-in needs no password, so no PW_USER_*_PASSWORD variable is required
+# for the current fixtures.
+
+stages:
+  - static
+  - test
+
+# Lint and typecheck are cheap and environment-independent, so they gate everything.
+static:
+  stage: static
+  image: node:22
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+  script:
+    - npm ci --prefer-offline
+    - npm run lint
+    - npm run typecheck
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+e2e:
+  stage: test
+  image: mcr.microsoft.com/playwright:v1.49.0-noble
+  parallel:
+    matrix:
+      - FUSEBASE_ENV: ["prod"]
+        # One entry per app key in fusebase.json.
+        APP: ["compass-ai"]
+  cache:
+    key:
+      files:
+        - tests/e2e/package-lock.json
+    paths:
+      - tests/e2e/node_modules/
+  script:
+    - cd tests/e2e
+    - npm ci --prefer-offline
+    - npx playwright install chromium # browser matching the locked version
+    - npx playwright test --project="$APP"
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - tests/e2e/reports/
+      - tests/e2e/test-results/
+  rules:
+    # Protected environment: scheduled runs and explicit manual triggers only.
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - when: manual
+      allow_failure: false

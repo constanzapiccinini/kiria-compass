@@ -1,0 +1,260 @@
+{
+  "_comment": [
+    "App-owned RLS classification (§4.3). Gate does NOT infer table security from SQL,",
+    "so every app table must be classified here or its security posture is undeclared.",
+    "",
+    "State: RLS is enabled and Postgres-enforced on all 23 app tables. bypassRls=false",
+    "and superuser=false for the runtime role, so these policies actually filter —",
+    "verified in both directions, not assumed.",
+    "",
+    "tenant  = org scope only. Either the row has no client of its own",
+    "          (portal_source_bindings maps portals to sources; alert_deliveries records",
+    "          how staff were notified), or it IS the org-level record (clients, portals).",
+    "scoped  = org scope plus client scope on client_id, keyed on app.req_client_id.",
+    "",
+    "app.req_client_id is a custom setting because every natural name (client_id,",
+    "portal_id) is reserved and refused through caller-supplied rlsContext, and the",
+    "blessed alternative trustedRuntimeContext.portalId needs isolated_store.rls.delegate,",
+    "which this app does not hold. The platform docs call a custom key here a reviewed",
+    "temporary fallback; that is exactly its status.",
+    "",
+    "An ABSENT client setting grants org scope, not nothing, because a large part of the",
+    "backend is legitimately cross-client: the worker claims whatever job is due, one",
+    "embedding batch can span clients, and alerts are org-scoped. See 0009 for why that",
+    "is defence in depth rather than a loophole."
+  ],
+  "tables": {
+    "clients": {
+      "classification": "tenant",
+      "orgColumn": "org_id"
+    },
+    "client_groups": {
+      "classification": "tenant",
+      "orgColumn": "org_id"
+    },
+    "portals": {
+      "classification": "tenant",
+      "orgColumn": "org_id"
+    },
+    "document_sources": {
+      "classification": "tenant",
+      "orgColumn": "org_id"
+    },
+    "system_alerts": {
+      "classification": "tenant",
+      "orgColumn": "org_id"
+    },
+    "audit_logs": {
+      "classification": "tenant",
+      "orgColumn": "org_id"
+    },
+    "app_settings": {
+      "classification": "tenant",
+      "orgColumn": "org_id"
+    },
+    "client_settings": {
+      "classification": "scoped",
+      "orgColumn": "org_id",
+      "scopes": [
+        {
+          "name": "client",
+          "column": "client_id",
+          "setting": "app.req_client_id"
+        }
+      ]
+    },
+    "client_group_members": {
+      "classification": "scoped",
+      "orgColumn": "org_id",
+      "scopes": [
+        {
+          "name": "client",
+          "column": "client_id",
+          "setting": "app.req_client_id"
+        }
+      ]
+    },
+    "documents": {
+      "classification": "scoped",
+      "orgColumn": "org_id",
+      "scopes": [
+        {
+          "name": "client",
+          "column": "client_id",
+          "setting": "app.req_client_id"
+        }
+      ]
+    },
+    "document_folders": {
+      "classification": "scoped",
+      "orgColumn": "org_id",
+      "scopes": [
+        {
+          "name": "client",
+          "column": "client_id",
+          "setting": "app.req_client_id"
+        }
+      ]
+    },
+    "document_chunks": {
+      "classification": "scoped",
+      "orgColumn": "org_id",
+      "scopes": [
+        {
+          "name": "client",
+          "column": "client_id",
+          "setting": "app.req_client_id"
+        }
+      ]
+    },
+    "document_pages": {
+      "classification": "scoped",
+      "orgColumn": "org_id",
+      "scopes": [
+        {
+          "name": "client",
+          "column": "client_id",
+          "setting": "app.req_client_id"
+        }
+      ]
+    },
+    "document_paragraphs": {
+      "classification": "scoped",
+      "orgColumn": "org_id",
+      "scopes": [
+        {
+          "name": "client",
+          "column": "client_id",
+          "setting": "app.req_client_id"
+        }
+      ]
+    },
+    "chats": {
+      "classification": "scoped",
+      "orgColumn": "org_id",
+      "scopes": [
+        {
+          "name": "client",
+          "column": "client_id",
+          "setting": "app.req_client_id"
+        }
+      ]
+    },
+    "chat_messages": {
+      "classification": "scoped",
+      "orgColumn": "org_id",
+      "scopes": [
+        {
+          "name": "client",
+          "column": "client_id",
+          "setting": "app.req_client_id"
+        }
+      ]
+    },
+    "chat_documents": {
+      "classification": "scoped",
+      "orgColumn": "org_id",
+      "scopes": [
+        {
+          "name": "client",
+          "column": "client_id",
+          "setting": "app.req_client_id"
+        }
+      ]
+    },
+    "ingest_jobs": {
+      "classification": "scoped",
+      "orgColumn": "org_id",
+      "scopes": [
+        {
+          "name": "client",
+          "column": "client_id",
+          "setting": "app.req_client_id"
+        }
+      ]
+    },
+    "embedding_batches": {
+      "classification": "scoped",
+      "orgColumn": "org_id",
+      "scopes": [
+        {
+          "name": "client",
+          "column": "client_id",
+          "setting": "app.req_client_id"
+        }
+      ]
+    },
+    "usage_events": {
+      "classification": "scoped",
+      "orgColumn": "org_id",
+      "scopes": [
+        {
+          "name": "client",
+          "column": "client_id",
+          "setting": "app.req_client_id"
+        }
+      ]
+    },
+    "rag_traces": {
+      "classification": "scoped",
+      "orgColumn": "org_id",
+      "scopes": [
+        {
+          "name": "client",
+          "column": "client_id",
+          "setting": "app.req_client_id"
+        }
+      ]
+    },
+    "portal_source_bindings": {
+      "classification": "tenant",
+      "orgColumn": "org_id"
+    },
+    "alert_deliveries": {
+      "classification": "tenant",
+      "orgColumn": "org_id"
+    },
+    "fusebase_schema_migrations": {
+      "classification": "technical"
+    },
+    "portal_registrations": {
+      "classification": "tenant",
+      "orgColumn": "org_id"
+    },
+    "portal_reconcile_runs": {
+      "classification": "tenant",
+      "orgColumn": "org_id"
+    },
+    "chat_message_feedback": {
+      "classification": "scoped",
+      "orgColumn": "org_id",
+      "scopes": [
+        {
+          "name": "client",
+          "column": "client_id",
+          "setting": "app.req_client_id"
+        }
+      ]
+    },
+    "question_embeddings": {
+      "classification": "tenant",
+      "orgColumn": "org_id"
+    },
+    "insight_themes": {
+      "classification": "tenant",
+      "orgColumn": "org_id"
+    },
+    "insight_theme_members": {
+      "classification": "tenant",
+      "orgColumn": "org_id"
+    },
+    "review_flags": {
+      "classification": "tenant",
+      "orgColumn": "org_id"
+    },
+    "insight_runs": {
+      "classification": "tenant",
+      "orgColumn": "org_id"
+    }
+  }
+}

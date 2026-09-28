@@ -1,0 +1,134 @@
+/*
+ * Chakra UI owns the reset and the design tokens (see src/theme.ts), so this file
+ * only carries the few things that must exist before React mounts.
+ *
+ * The three hexes below are the one place in the app where a brand value is written
+ * out by hand instead of coming from a token, and that is unavoidable: this CSS is
+ * parsed before any JavaScript runs, which is the whole reason it exists. They are
+ * `--ink` (#010104) and `--kiria-blue` (#004AAD) from Phase 9 §1, and the brand test's
+ * yellow audit reads this file too.
+ */
+/*
+ * The brand face, self-hosted — §1: "no Google Fonts, no CDN".
+ *
+ * One variable file covering 400-800, built by `scripts/build-brand-font.mjs` from the
+ * TTF in the brand assets folder and subset to latin plus the punctuation this UI
+ * actually emits. The apps use five distinct weights; five static cuts would have been
+ * about 190 KB and five requests against this file's 73 KB and one.
+ *
+ * `font-display: swap` because a blocked or slow font must degrade to the system stack
+ * and not to a blank screen. `size-adjust` is deliberately absent — the fallback-metrics
+ * check in the e2e suite measures whether the swap shifts the layout, and adding a
+ * correction before that measurement said one was needed would be guessing.
+ */
+@font-face {
+  font-family: 'Nunito Sans';
+  src: url('/fonts/nunito-sans-latin.woff2') format('woff2-variations');
+  font-weight: 400 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+/*
+ * Avoid a white flash before Chakra paints the themed background.
+ *
+ * `--ink` itself, matching `bg.canvas` in dark mode exactly. The old value was a
+ * generic near-black slate; a pre-paint ground that is a *different* dark to the one
+ * that lands a moment later is a visible flicker on every load.
+ */
+@media (prefers-color-scheme: dark) {
+  html {
+    background: #010104;
+  }
+}
+
+/*
+ * The citation pulse — two short cycles after a jump, then stop. A permanently
+ * animating highlight is just noise.
+ *
+ * Brand blue, not the highlight's yellow. The swipe underneath already says *this is
+ * the passage*; the ring says *this is the one you just jumped to*, and a yellow ring
+ * around a yellow swipe communicates nothing at all. This is §1's colour law applied
+ * to two adjacent signals: two meanings, two colours.
+ */
+@keyframes compass-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 74, 173, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(0, 74, 173, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 74, 173, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Respect the user's motion preference; the colour change alone still marks it. */
+  * {
+    animation: none !important;
+  }
+}
+
+/*
+ * PDF link annotations.
+ *
+ * The minimal subset of pdf.js's `pdf_viewer.css` that link annotations need. The
+ * shipped stylesheet is 6,400 lines of full-viewer chrome — toolbars, sidebars, form
+ * widgets, the annotation editor — and importing it to position anchors would both
+ * dwarf this file and collide with Chakra's reset.
+ *
+ * The rules below are taken from that stylesheet rather than invented, so a pdf.js
+ * upgrade that changes the layer's DOM shape is the thing to re-check here.
+ */
+.annotationLayer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  /* The container is transparent to the mouse; only the anchors inside take clicks,
+     so text selection and the citation highlights are unaffected. */
+  pointer-events: none;
+  transform-origin: 0 0;
+}
+
+.annotationLayer section {
+  position: absolute;
+  text-align: initial;
+  pointer-events: auto;
+  box-sizing: border-box;
+  transform-origin: 0 0;
+  user-select: none;
+}
+
+.annotationLayer .linkAnnotation > a {
+  position: absolute;
+  font-size: 1em;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/*
+ * The hover tint is TEAL, where pdf.js ships pure yellow.
+ *
+ * Phase 9 §1 gives yellow exactly one job in the client app — the citation highlight —
+ * and a link hover flashing the same colour would say "this is the passage your answer
+ * came from" about an arbitrary hyperlink. Teal is the brand's own answer for "links,
+ * interactive text", so the correct colour here is the one the system already names.
+ */
+.annotationLayer .linkAnnotation:not(.hasBorder) > a:hover {
+  background-color: var(--chakra-colors-teal-600, #0065a6);
+  opacity: 0.2;
+}
+
+.annotationLayer .linkAnnotation.hasBorder:hover {
+  background-color: color-mix(in srgb, var(--chakra-colors-teal-600, #0065a6) 20%, transparent);
+}

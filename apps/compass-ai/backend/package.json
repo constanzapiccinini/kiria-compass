@@ -1,0 +1,26 @@
+{
+  "name": "app-backend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsup src/index.ts --format esm --out-dir dist",
+    "start": "node dist/index.js",
+    "lint": "eslint . --max-warnings 0",
+    "test": "tsx tests/invariants.test.ts && tsx tests/brand.test.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1124.0",
+    "@aws-sdk/client-textract": "^3.1124.0",
+    "@fusebase/fusebase-gate-sdk": "^2.11.2",
+    "@hono/node-server": "^1.19.17",
+    "@hono/node-ws": "^1.x",
+    "hono": "^4.13.5",
+    "pdfjs-dist": "^6.3.289"
+  },
+  "devDependencies": {
+    "tsup": "^8.x",
+    "tsx": "^4.x",
+    "typescript": "^5.x"
+  }
+}

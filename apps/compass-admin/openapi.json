@@ -1,0 +1,2876 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Compass Admin API",
+    "version": "1.0.0",
+    "description": "Staff-only administration for Compass AI: portals, clients, sources, documents, settings, alerts, usage and the audit log. Every operation requires an organization member; a portal client is refused with 403 NOT_EMPLOYEE."
+  },
+  "servers": [
+    {
+      "url": "/api"
+    }
+  ],
+  "paths": {
+    "/documents": {
+      "get": {
+        "operationId": "listClientDocuments",
+        "summary": "Every document of a client",
+        "description": "Client-scoped rather than portal-scoped: a document orphaned by a removed binding vanishes from the portal view exactly when an employee needs to find it. Soft-deleted rows are included.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "Documents"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          }
+        },
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Which client to act on. Accepted here — and only here — because an employee chooses the client explicitly; the client app derives it from a verified portal instead."
+          }
+        ]
+      },
+      "post": {
+        "operationId": "uploadDocuments",
+        "summary": "Upload PDFs for a client",
+        "description": "Multipart upload of one or more PDFs into the client's implicit app_upload source, creating and binding that source if it does not exist. Bytes go to the Gate file service; only storedFileUUID, readUrl and metadata are persisted. Each file is validated by its %PDF header rather than its extension, deduplicated on content hash, and capped at 100 MB. Parsing is performed by the client app worker through the shared ingest_jobs table; this endpoint only enqueues. Returns 201 when every file was accepted and 207 otherwise — never a 4xx for per-file refusals, because the reasons live in the response body.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "files": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    }
+                  }
+                },
+                "required": [
+                  "files"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Every file accepted and queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "documentId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "queued",
+                              "duplicate",
+                              "rejected"
+                            ]
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "status"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "results"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Mixed or all-refused batch; per-file outcomes in results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "documentId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "queued",
+                              "duplicate",
+                              "rejected"
+                            ]
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "status"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "results"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/documents/folders": {
+      "get": {
+        "operationId": "listClientFolders",
+        "summary": "The client’s folder tree",
+        "description": "Read-only here. Creating and reparenting folders lives in the client app, where the cycle and depth rules are implemented once.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "Folders"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          }
+        },
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Which client to act on. Accepted here — and only here — because an employee chooses the client explicitly; the client app derives it from a verified portal instead."
+          }
+        ]
+      },
+      "post": {
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "operationId": "createFolder",
+        "summary": "Create a folder",
+        "description": "Creates a folder under an existing parent, or at the root when parentId is null or omitted. Refused when the parent is already at the deepest level (five levels, depth 0..4).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "clientId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "parentId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "uuid"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "clientId",
+                  "name"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "folder": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "parentId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "uuid"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "position": {
+                          "type": "integer"
+                        },
+                        "depth": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "parentId",
+                        "name",
+                        "position",
+                        "depth"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "folder"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/documents/folders/order": {
+      "put": {
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "operationId": "reorderFolders",
+        "summary": "Order one parent's child folders",
+        "description": "orderedIds must list every child of that parent. A partial list is refused, because applying one would leave the omitted folders on positions that collide with the new ones. Moves nothing between parents — that is reparentFolder.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "clientId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "parentId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "uuid"
+                  },
+                  "orderedIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                },
+                "required": [
+                  "clientId",
+                  "orderedIds"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reordered, in stored order",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "folders": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "parentId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "uuid"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "position": {
+                            "type": "integer"
+                          },
+                          "depth": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "parentId",
+                          "name",
+                          "position",
+                          "depth"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "folders"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/documents/folders/{folderId}": {
+      "patch": {
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "operationId": "renameFolder",
+        "summary": "Rename a folder",
+        "description": "Changes only the name. Never touches position or parent.",
+        "parameters": [
+          {
+            "name": "folderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "clientId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "clientId",
+                  "name"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Renamed"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "delete": {
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "operationId": "deleteFolder",
+        "summary": "Delete a folder",
+        "description": "Children move up to this folder's parent and its documents become Unfiled. Nothing is deleted recursively: a folder is an organisational label, and losing a subtree of documents because a label was removed would be indefensible.",
+        "parameters": [
+          {
+            "name": "folderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "clientId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/documents/folders/{folderId}/parent": {
+      "put": {
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "operationId": "reparentFolder",
+        "summary": "Reparent a folder",
+        "description": "The one operation that can create a cycle, so it has its own endpoint. Refuses placing a folder under itself or a descendant, and refuses a move whose deepest descendant would exceed the depth limit — both checked before anything is written, so a rejected move leaves the tree untouched rather than half-moved.",
+        "parameters": [
+          {
+            "name": "folderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "clientId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "parentId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "clientId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reparented"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/documents/{documentId}": {
+      "delete": {
+        "operationId": "deleteDocument",
+        "summary": "Delete a document",
+        "description": "Soft-deletes the document so it leaves every client view in the same request (portal_visible_documents filters on deleted_at), then enqueues a purge job that the client app worker performs. Repeated calls are a no-op rather than moving the deletion timestamp. If the worker never runs the document stays invisible rather than half-deleted and readable.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Soft-deleted; purge queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "boolean"
+                    },
+                    "purgeJobId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "deleted"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/documents/{documentId}/folder": {
+      "put": {
+        "operationId": "fileDocument",
+        "summary": "File a document into a folder",
+        "description": "`folderId: null` moves it to Unfiled. Sets `folder_pinned`, so a source’s folder column stops re-filing it. Never re-indexes — where a document sits has nothing to do with its content.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "Filed"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "clientId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "folderId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "clientId",
+                  "folderId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{documentId}/reindex": {
+      "post": {
+        "operationId": "reindexDocument",
+        "summary": "Queue a re-index",
+        "description": "Runs on the client app’s worker: one pipeline, one set of retry semantics.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "async",
+        "responses": {
+          "202": {
+            "description": "Queued"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/documents/{documentId}/versions": {
+      "get": {
+        "operationId": "getDocumentVersions",
+        "summary": "Version history",
+        "description": "Walks the supersedes chain that re-ingest already writes; the versions are real rows, so they are their own history.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          }
+        },
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "summary": "Health check",
+        "description": "Returns the backend health status.",
+        "x-fusebase-visibility": "org",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "Backend is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ops/alert-settings": {
+      "get": {
+        "operationId": "getAlertSettings",
+        "summary": "Read the alert notification channels and recipient list",
+        "description": "Org-wide, not per-client: recipients are KIRIA staff. Email reports as enabled only when at least one recipient is configured, matching what the raise path would actually send.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "Current channels and recipients",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "channels": {
+                      "type": "object",
+                      "properties": {
+                        "inApp": {
+                          "type": "boolean",
+                          "description": "Always true; in-app alerting cannot be disabled because the Alerts screen reads system_alerts directly."
+                        },
+                        "email": {
+                          "type": "boolean"
+                        },
+                        "monday": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "inApp",
+                        "email",
+                        "monday"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "recipients": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "userId": {
+                            "type": "string"
+                          },
+                          "email": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "notes": {
+                      "type": "object",
+                      "properties": {
+                        "recipientRule": {
+                          "type": "string"
+                        },
+                        "mondayStatus": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "recipientRule",
+                        "mondayStatus"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "channels",
+                    "recipients",
+                    "notes"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          }
+        }
+      },
+      "put": {
+        "operationId": "saveAlertSettings",
+        "summary": "Update the alert notification channels and recipient list",
+        "description": "Recipients may be sent as bare strings; a digit-only value is stored as a user id and a value containing @ as an email, matching Gate sendOrgEmail. Enabling email with no recipients is refused rather than saved, because it reads as configured and delivers nothing. Org membership is not checked here — that is Gate decision at send time, recorded per recipient on the delivery row.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "channels": {
+                    "type": "object",
+                    "properties": {
+                      "email": {
+                        "type": "boolean"
+                      },
+                      "monday": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": true
+                  },
+                  "recipients": {
+                    "type": "array",
+                    "items": {
+                      "oneOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "userId": {
+                              "type": "string"
+                            },
+                            "email": {
+                              "type": "string"
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "channels": {
+                      "type": "object",
+                      "properties": {
+                        "inApp": {
+                          "type": "boolean",
+                          "description": "Always true; in-app alerting cannot be disabled because the Alerts screen reads system_alerts directly."
+                        },
+                        "email": {
+                          "type": "boolean"
+                        },
+                        "monday": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "inApp",
+                        "email",
+                        "monday"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "recipients": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "userId": {
+                            "type": "string"
+                          },
+                          "email": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "channels",
+                    "recipients"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          }
+        }
+      }
+    },
+    "/ops/alerts": {
+      "get": {
+        "operationId": "listAlerts",
+        "summary": "The alert inbox",
+        "description": "Defaults to open alerts: an inbox that opens on resolved history buries what it exists to surface. Nothing raises alerts until Phase 4D.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "Alerts"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          }
+        },
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "open",
+                "new",
+                "acknowledged",
+                "resolved",
+                "all"
+              ]
+            }
+          },
+          {
+            "name": "clientId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Which client to act on. Accepted here — and only here — because an employee chooses the client explicitly; the client app derives it from a verified portal instead."
+          }
+        ]
+      }
+    },
+    "/ops/alerts/{alertId}/status": {
+      "put": {
+        "operationId": "setAlertStatus",
+        "summary": "Acknowledge, resolve or reopen an alert",
+        "description": "Reopening clears the resolution timestamp so a live alert never looks closed.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "parameters": [
+          {
+            "name": "alertId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "new",
+                      "acknowledged",
+                      "resolved"
+                    ]
+                  }
+                },
+                "required": [
+                  "status"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ops/audit": {
+      "get": {
+        "operationId": "listAuditLog",
+        "summary": "The audit log, filterable",
+        "description": "Keyset-paged on `created_at` rather than by offset, so entries arriving mid-read cannot make a page skip or repeat rows. In an audit trail a skipped row is a missing record.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "Entries and the next cursor"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          }
+        },
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Which client to act on. Accepted here — and only here — because an employee chooses the client explicitly; the client app derives it from a verified portal instead."
+          },
+          {
+            "name": "actorUserId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Prefix match: \"source.\" finds every source event."
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Cursor from a previous response’s nextBefore."
+          }
+        ]
+      }
+    },
+    "/ops/audit/actions": {
+      "get": {
+        "operationId": "listAuditActions",
+        "summary": "Distinct action names",
+        "description": "So the filter can be a picker rather than a text box someone has to guess into.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          }
+        }
+      }
+    },
+    "/ops/usage": {
+      "get": {
+        "operationId": "getUsage",
+        "summary": "Month-to-date usage and cost per client",
+        "description": "Cost is summed from what each usage row was charged at, not recomputed from current prices — a price change must not rewrite history. Current rates are returned separately.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "Month-to-date usage and cost per client, plus the current price list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "periodStart": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "Start of the month the totals cover."
+                    },
+                    "pricing": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "description": "Current per-model rates. Returned alongside historical totals, never applied to them — a usage row keeps the cost it was charged at, so a price change cannot rewrite history."
+                    },
+                    "clients": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "clientId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "clientName": {
+                            "type": "string"
+                          },
+                          "inputTokens": {
+                            "type": "integer"
+                          },
+                          "outputTokens": {
+                            "type": "integer"
+                          },
+                          "ocrPages": {
+                            "type": "integer"
+                          },
+                          "costUsd": {
+                            "type": "number",
+                            "description": "Summed from the stored cost_usd on each usage row, not recomputed."
+                          },
+                          "events": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "clientId",
+                          "clientName",
+                          "inputTokens",
+                          "outputTokens",
+                          "ocrPages",
+                          "costUsd",
+                          "events"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "periodStart",
+                    "pricing",
+                    "clients"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          }
+        }
+      }
+    },
+    "/portals": {
+      "get": {
+        "operationId": "listPortals",
+        "summary": "Every portal with its client, bindings and health",
+        "description": "`lastSeenAt` is what identifies a portal that is configured but has never been opened — the most common \"why is this not working\".",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          }
+        }
+      },
+      "post": {
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "operationId": "connectPortal",
+        "summary": "Connect a portal to a client",
+        "description": "Creates the portals row that makes a portal serve a client. The clientId is supplied by a person and never derived — attaching one client documents to another portal is the mistake the tenancy model exists to prevent. A duplicate portal id is refused with 409 rather than creating a second row, because which client a portal serves may not have two answers. On success any open PORTAL_NOT_BOUND alert for that portal is resolved and its sighting dismissed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "portalId": {
+                    "type": "string"
+                  },
+                  "workspaceId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "clientId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "portalId",
+                  "label",
+                  "clientId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Connected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "portalId": {
+                      "type": "string"
+                    },
+                    "clientId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "label": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "portalId",
+                    "clientId",
+                    "label"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/portals/clients": {
+      "post": {
+        "operationId": "createClient",
+        "summary": "Create a client",
+        "description": "Also creates its settings row, so the settings screen has a client layer to edit.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          },
+          "409": {
+            "description": "Slug already taken"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "notes": {
+                    "type": "string",
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/portals/clients/{clientId}/status": {
+      "put": {
+        "operationId": "setClientStatus",
+        "summary": "Archive, pause or reactivate a client",
+        "description": "Archiving is a status change, never a delete: documents, chats and usage history are kept. There is no delete route.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "active",
+                      "paused",
+                      "archived"
+                    ]
+                  }
+                },
+                "required": [
+                  "status"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/portals/discovered": {
+      "get": {
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "operationId": "discoverPortals",
+        "summary": "Every portal in the organization, connected or not",
+        "description": "Merges three sources on the portal id: the platform list via Gate listPortals, our own bindings, and sightings recorded when an unbound portal turned a visitor away. The listPortals id is the same identifier as the portalId claim in a portal context token — verified, not assumed. Discovery is best-effort: when portals.read is not granted the response still returns sightings and reports discovery.ok=false with a note, because an empty list caused by permissions is otherwise indistinguishable from having nothing to connect.",
+        "responses": {
+          "200": {
+            "description": "Portals, unconnected first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "portals": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "portalId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "workspaceId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "bound": {
+                            "type": "boolean"
+                          },
+                          "rowId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "clientId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "clientName": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "firstSeenAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "lastSeenAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "seenCount": {
+                            "type": "integer"
+                          },
+                          "missingFromPlatform": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "portalId",
+                          "name",
+                          "url",
+                          "workspaceId",
+                          "bound"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "discovery": {
+                      "type": "object",
+                      "properties": {
+                        "ok": {
+                          "type": "boolean"
+                        },
+                        "error": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "note": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "ok",
+                        "error",
+                        "note"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "portals",
+                    "discovery"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          }
+        }
+      }
+    },
+    "/portals/groups": {
+      "get": {
+        "operationId": "listGroups",
+        "summary": "Client groups and their members",
+        "description": "A group source feeds every portal bound to it, across clients.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createGroup",
+        "summary": "Create a client group",
+        "description": "",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/portals/groups/{groupId}/members/{clientId}": {
+      "put": {
+        "operationId": "addGroupMember",
+        "summary": "Add a client to a group",
+        "description": "",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "Added"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          }
+        },
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "removeGroupMember",
+        "summary": "Remove a client from a group",
+        "description": "",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "Removed"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          }
+        },
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/portals/{portalRowId}": {
+      "delete": {
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "operationId": "disconnectPortal",
+        "summary": "Disconnect a portal from its client",
+        "description": "Deletes only the binding, and with it the portal source bindings that belong to that row. No document, source or client is touched. The sighting is left undismissed so a portal disconnected by mistake reappears in the waiting list rather than vanishing.",
+        "parameters": [
+          {
+            "name": "portalRowId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Disconnected"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/portals/{portalRowId}/client": {
+      "put": {
+        "operationId": "rebindPortalClient",
+        "summary": "Point a portal at a different client",
+        "description": "Changes which client’s documents an entire audience reads, so the new owner is recorded in the audit log.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "Rebound"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "parameters": [
+          {
+            "name": "portalRowId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "clientId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "clientId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/portals/{portalRowId}/preview": {
+      "get": {
+        "operationId": "previewPortal",
+        "summary": "What this portal resolves to",
+        "description": "Lists every document the bindings expose and marks, per row, whether the client will actually see it. Resolved through the admin view, so rows that are still processing or orphaned appear — that difference is the point of the screen.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "Documents"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "parameters": [
+          {
+            "name": "portalRowId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/portals/{portalRowId}/status": {
+      "put": {
+        "operationId": "setPortalStatus",
+        "summary": "Pause or resume a portal",
+        "description": "A paused portal resolves to nothing for its clients.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "parameters": [
+          {
+            "name": "portalRowId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "active",
+                      "paused"
+                    ]
+                  }
+                },
+                "required": [
+                  "status"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/session": {
+      "get": {
+        "operationId": "getAdminSession",
+        "summary": "The calling employee, plus counts for the shell",
+        "description": "Also the cheapest check of whether the caller is staff at all: a portal client gets 403 here rather than a screen full of failures.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          }
+        }
+      }
+    },
+    "/session/clients": {
+      "get": {
+        "operationId": "listAllClients",
+        "summary": "Every client, for the picker",
+        "description": "Includes archived clients so they can be reactivated.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          }
+        }
+      }
+    },
+    "/settings": {
+      "get": {
+        "operationId": "getEffectiveSettings",
+        "summary": "Effective settings, with provenance",
+        "description": "Precedence is portal override, then client, then org default, then the built-in value. Each key reports which layer supplied it, because the real question is never \"what is this set to\" but \"why\".",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "Settings and their sources"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Which client to act on. Accepted here — and only here — because an employee chooses the client explicitly; the client app derives it from a verified portal instead."
+          },
+          {
+            "name": "portalRowId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Include this portal’s override layer."
+          }
+        ]
+      }
+    },
+    "/settings/clients/{clientId}": {
+      "put": {
+        "operationId": "setClientSettings",
+        "summary": "Write the client layer",
+        "description": "Stored as typed columns rather than a blob, so the database enforces the shapes.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "Saved"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsPatch"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/defaults": {
+      "put": {
+        "operationId": "setOrgDefaults",
+        "summary": "Write the org defaults layer",
+        "description": "Unknown or invalid keys are reported in `rejected` rather than ignored: a silently dropped cap is how someone believes a limit applies when it never did.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "Applied and rejected keys"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsPatch"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/portals": {
+      "get": {
+        "operationId": "listClientPortals",
+        "summary": "Portals of a client, with their overrides",
+        "description": "",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "Portals"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          }
+        },
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Which client to act on. Accepted here — and only here — because an employee chooses the client explicitly; the client app derives it from a verified portal instead."
+          }
+        ]
+      }
+    },
+    "/settings/portals/{portalRowId}": {
+      "put": {
+        "operationId": "setPortalOverride",
+        "summary": "Write a portal override layer",
+        "description": "The most specific layer: it wins over the client and org values.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "Saved"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "parameters": [
+          {
+            "name": "portalRowId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsPatch"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sources": {
+      "get": {
+        "operationId": "listSources",
+        "summary": "Sources, optionally for one client",
+        "description": "",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          }
+        },
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Which client to act on. Accepted here — and only here — because an employee chooses the client explicitly; the client app derives it from a verified portal instead."
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createSource",
+        "summary": "Create a compasses_table source",
+        "description": "The config is validated before the row is written, so an unusable mapping fails in the form rather than as a failed run later.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSource"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sources/preview": {
+      "post": {
+        "operationId": "previewSource",
+        "summary": "Dry-run a config without saving",
+        "description": "Returns the matching row count, a capped sample, and how many of those rows have no fetchable file. That last number is otherwise invisible until every one of them fails to parse.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "Preview"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "config": {
+                    "$ref": "#/components/schemas/SourceConfig"
+                  }
+                },
+                "required": [
+                  "config"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sources/{sourceId}": {
+      "patch": {
+        "operationId": "updateSource",
+        "summary": "Rename, retime, pause or remap a source",
+        "description": "Replacing the config clears a previous error so a corrected mapping leaves the error state immediately.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "parameters": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "syncEnabled": {
+                    "type": "boolean",
+                    "description": "Governs scheduling only. \"Sync now\" still runs on a paused source."
+                  },
+                  "syncIntervalMinutes": {
+                    "type": "integer",
+                    "minimum": 5
+                  },
+                  "config": {
+                    "$ref": "#/components/schemas/SourceConfig"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sources/{sourceId}/bindings/{portalRowId}": {
+      "put": {
+        "operationId": "bindSourceToPortal",
+        "summary": "Bind a source to a portal",
+        "description": "Binding is what makes a source’s documents visible to that portal’s clients.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "Bound"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          }
+        },
+        "parameters": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "portalRowId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/sources/{sourceId}/history": {
+      "get": {
+        "operationId": "getSourceHistory",
+        "summary": "Recent sync runs",
+        "description": "Read from the job queue: the jobs are the history, so there is no second record to keep consistent.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          }
+        },
+        "parameters": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/sources/{sourceId}/sync": {
+      "post": {
+        "operationId": "syncSourceNow",
+        "summary": "Queue a sync",
+        "description": "Writes a job into the shared queue; the client app’s worker executes it, so a sync started here behaves identically to a scheduled one. Returns `queued: false` when a run is already in flight rather than starting a second.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "async",
+        "responses": {
+          "202": {
+            "description": "Queued, or already running"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotAuthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotEmployee"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "Source is not bound to any portal, so there is no client to sync into"
+          }
+        },
+        "parameters": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "responses": {
+      "NotAuthenticated": {
+        "description": "No app session on the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              },
+              "required": [
+                "error"
+              ]
+            }
+          }
+        }
+      },
+      "NotEmployee": {
+        "description": "The caller is authenticated but is not an organization member with a staff role. A portal client receives this.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              },
+              "required": [
+                "error"
+              ]
+            }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "Malformed input. The message names the offending field.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              },
+              "required": [
+                "error"
+              ]
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "No such record.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              },
+              "required": [
+                "error"
+              ]
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "The request conflicts with the current state — for example a folder move that would create a cycle or exceed the depth limit. Nothing was changed.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              },
+              "required": [
+                "error"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "SourceConfig": {
+        "type": "object",
+        "description": "Column mapping for a compasses_table source. Table and column names are validated as plain lowercase identifiers before they reach SQL, where identifiers cannot be parameterised.",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "sql_table"
+            ]
+          },
+          "tableName": {
+            "type": "string",
+            "pattern": "^[a-z_][a-z0-9_]*$"
+          },
+          "columns": {
+            "type": "object",
+            "properties": {
+              "externalId": {
+                "type": "string",
+                "pattern": "^[a-z_][a-z0-9_]*$"
+              },
+              "name": {
+                "type": "string",
+                "pattern": "^[a-z_][a-z0-9_]*$"
+              },
+              "file": {
+                "type": "string",
+                "pattern": "^[a-z_][a-z0-9_]*$",
+                "description": "Stored-file uuid or a readable URL."
+              },
+              "fileUrl": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[a-z_][a-z0-9_]*$",
+                "description": "Required when `file` holds a uuid: the file service issues a read URL once at upload and it bears no relation to the uuid, and Gate exposes no uuid-to-URL lookup, so without it the bytes are unreachable."
+              },
+              "updatedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[a-z_][a-z0-9_]*$",
+                "description": "Without it, changed rows are never re-ingested."
+              },
+              "folderPath": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[a-z_][a-z0-9_]*$"
+              },
+              "include": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[a-z_][a-z0-9_]*$"
+              }
+            },
+            "required": [
+              "externalId",
+              "name",
+              "file"
+            ],
+            "additionalProperties": false
+          },
+          "filter": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Staff-authored SQL WHERE fragment, at the same trust level as the table name. Never built from end-user input."
+          }
+        },
+        "required": [
+          "mode",
+          "tableName",
+          "columns"
+        ],
+        "additionalProperties": false
+      },
+      "CreateSource": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "ownerKind": {
+            "type": "string",
+            "enum": [
+              "client",
+              "group"
+            ]
+          },
+          "clientId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "groupId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "syncIntervalMinutes": {
+            "type": "integer",
+            "minimum": 5
+          },
+          "config": {
+            "$ref": "#/components/schemas/SourceConfig"
+          }
+        },
+        "required": [
+          "name",
+          "ownerKind",
+          "config"
+        ],
+        "additionalProperties": false
+      },
+      "SettingsPatch": {
+        "type": "object",
+        "description": "Each key is validated individually; unknown or invalid keys come back in `rejected`.",
+        "properties": {
+          "retrievalMode": {
+            "type": "string",
+            "enum": [
+              "economy",
+              "precision"
+            ]
+          },
+          "maxAnswerTokens": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 4000
+          },
+          "maxRetrievedTokens": {
+            "type": "integer",
+            "minimum": 200,
+            "maximum": 20000
+          },
+          "maxOcrPagesPerUpload": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "monthlyTokenBudget": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "monthlyOcrPageBudget": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "description": "When reached, source syncs pause instead of burning the budget."
+          },
+          "ocrTablesEnabled": {
+            "type": "boolean"
+          },
+          "ocrFormsEnabled": {
+            "type": "boolean"
+          },
+          "ocrQueriesEnabled": {
+            "type": "boolean"
+          },
+          "batchEmbeddingEnabled": {
+            "type": "boolean"
+          },
+          "batchEmbeddingMinChunks": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "retentionDays": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 3650
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}

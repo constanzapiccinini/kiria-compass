@@ -1,0 +1,208 @@
+{
+  "orgId": "u27b70",
+  "productId": "sfqksmtybcsejlru",
+  "env": "prod",
+  "apps": [
+    {
+      "id": "jkbjijn0ndnorxzp",
+      "subdomain": "compass-ai",
+      "name": "Compass AI",
+      "codingAgent": "claude-code",
+      "model": "claude-opus-5",
+      "path": "apps/compass-ai",
+      "dev": {
+        "command": "npm run dev"
+      },
+      "build": {
+        "command": "npm run build",
+        "outputDir": "dist"
+      },
+      "backend": {
+        "dev": {
+          "command": "npm run dev"
+        },
+        "build": {
+          "command": "npm run build"
+        },
+        "start": {
+          "command": "npm run start"
+        },
+        "minReplicas": 1
+      },
+      "secrets": [
+        {
+          "key": "OPENAI_API_KEY",
+          "description": "OpenAI API key for embeddings and chat completions"
+        },
+        {
+          "key": "AWS_ACCESS_KEY_ID",
+          "description": "AWS access key for Textract OCR and its S3 staging bucket"
+        },
+        {
+          "key": "AWS_SECRET_ACCESS_KEY",
+          "description": "AWS secret access key paired with AWS_ACCESS_KEY_ID"
+        },
+        {
+          "key": "AWS_REGION",
+          "description": "AWS region for Textract and the OCR staging bucket (e.g. us-east-1)"
+        },
+        {
+          "key": "TEXTRACT_S3_BUCKET",
+          "description": "S3 bucket used to stage PDFs for asynchronous Textract OCR"
+        }
+      ],
+      "fusebaseGateMeta": {
+        "sdkVersion": "2.11.5",
+        "analyzedAt": "2026-09-08T17:12:30.888Z",
+        "usedOpsChangedAt": "2026-09-07T17:30:19.167Z",
+        "permissionsChangedAt": "2026-09-07T17:30:19.173Z",
+        "usedOps": [
+          "batchInsertIsolatedStoreSqlRows",
+          "completeMultipartFileUpload",
+          "deleteIsolatedStoreSqlRows",
+          "insertIsolatedStoreSqlRow",
+          "listIsolatedStores",
+          "listPortalMembers",
+          "queryIsolatedStoreSql",
+          "runIsolatedStoreSqlBatch",
+          "sendOrgEmail",
+          "startMultipartFileUpload",
+          "updateIsolatedStoreSqlRows",
+          "verifyPortalFeatureContextToken"
+        ],
+        "permissions": [
+          "email.write",
+          "files.write",
+          "health.read",
+          "isolated_store.data.write",
+          "isolated_store.read",
+          "org.members.read"
+        ]
+      },
+      "backendOnlyGatePermissions": [
+        "isolated_store.data.write",
+        "isolated_store.read"
+      ],
+      "key": "compass-ai"
+    },
+    {
+      "subdomain": "compass-admin",
+      "name": "Compass Admin",
+      "codingAgent": "claude-code",
+      "model": "claude-opus-5",
+      "access": [
+        {
+          "type": "orgRole",
+          "id": "member"
+        }
+      ],
+      "path": "apps/compass-admin",
+      "dev": {
+        "command": "npm run dev"
+      },
+      "build": {
+        "command": "npm run build",
+        "outputDir": "dist"
+      },
+      "backend": {
+        "dev": {
+          "command": "npm run dev"
+        },
+        "build": {
+          "command": "npm run build"
+        },
+        "start": {
+          "command": "npm run start"
+        },
+        "minReplicas": 1
+      },
+      "backendOnlyGatePermissions": [
+        "isolated_store.data.write",
+        "isolated_store.read"
+      ],
+      "fusebaseGateMeta": {
+        "sdkVersion": "2.2.15-sdk.0",
+        "analyzedAt": "2026-09-08T14:03:09.917Z",
+        "usedOpsChangedAt": "2026-09-08T13:05:46.578Z",
+        "permissionsChangedAt": "2026-09-08T13:05:46.582Z",
+        "usedOps": [
+          "batchInsertIsolatedStoreSqlRows",
+          "completeMultipartFileUpload",
+          "deleteIsolatedStoreSqlRows",
+          "getMyOrgAccess",
+          "insertIsolatedStoreSqlRow",
+          "listIsolatedStores",
+          "listPortals",
+          "queryIsolatedStoreSql",
+          "startMultipartFileUpload",
+          "updateIsolatedStoreSqlRows"
+        ],
+        "permissions": [
+          "files.write",
+          "isolated_store.data.write",
+          "isolated_store.read",
+          "org.read",
+          "portals.read"
+        ]
+      },
+      "key": "compass-admin",
+      "id": "79mh8hv7ti9uvzgg"
+    },
+    {
+      "subdomain": "compass-insights",
+      "name": "Compass Insights",
+      "codingAgent": "claude-code",
+      "model": "claude-opus-5",
+      "access": [
+        {
+          "type": "orgRole",
+          "id": "member"
+        }
+      ],
+      "path": "apps/compass-insights",
+      "dev": {
+        "command": "npm run dev"
+      },
+      "build": {
+        "command": "npm run build",
+        "outputDir": "dist"
+      },
+      "backend": {
+        "dev": {
+          "command": "npm run dev"
+        },
+        "build": {
+          "command": "npm run build"
+        },
+        "start": {
+          "command": "npm run start"
+        }
+      },
+      "backendOnlyGatePermissions": [
+        "isolated_store.data.write",
+        "isolated_store.read"
+      ],
+      "fusebaseGateMeta": {
+        "sdkVersion": "2.2.15-sdk.0",
+        "analyzedAt": "2026-09-09T13:17:07.330Z",
+        "usedOpsChangedAt": "2026-09-09T13:17:07.330Z",
+        "permissionsChangedAt": "2026-09-09T13:17:07.341Z",
+        "usedOps": [
+          "batchInsertIsolatedStoreSqlRows",
+          "deleteIsolatedStoreSqlRows",
+          "getMyOrgAccess",
+          "insertIsolatedStoreSqlRow",
+          "listIsolatedStores",
+          "queryIsolatedStoreSql",
+          "updateIsolatedStoreSqlRows"
+        ],
+        "permissions": [
+          "isolated_store.data.write",
+          "isolated_store.read",
+          "org.read"
+        ]
+      }
+    }
+  ],
+  "firstAppSub": "compass-ai"
+}

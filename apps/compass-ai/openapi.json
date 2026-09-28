@@ -1,0 +1,2482 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Compass AI Backend API",
+    "version": "2.1.0",
+    "description": "Document analysis with grounded, citation-backed answers, scoped to a client portal. Tenancy is derived from a verified portalFeatureContextToken sent as x-portal-context: NO operation accepts a client, workspace or portal identifier from the caller, and one that carries one is rejected with TENANCY_PROBE. Every operation enforces the derived actor (employee or client) inside its handler. All operations are private: there is no cross-app consumer."
+  },
+  "servers": [
+    {
+      "url": "/api"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "description": "Every failure carries a stable machine code. For a portal failure the message is separately authored to be safe to show a client.",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "examples": [
+                  "TENANCY_PROBE",
+                  "PORTAL_NOT_BOUND",
+                  "FORBIDDEN_CLIENT_ROLE",
+                  "PORTAL_VERIFY_FAILED"
+                ]
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "additionalProperties": false
+      },
+      "RetrievalMode": {
+        "type": "string",
+        "enum": [
+          "economy",
+          "precision"
+        ]
+      },
+      "DocumentStatus": {
+        "type": "string",
+        "enum": [
+          "queued",
+          "uploading",
+          "ocr",
+          "parsed",
+          "embedding",
+          "indexed",
+          "failed",
+          "deleted"
+        ]
+      },
+      "DocumentSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DocumentStatus"
+          },
+          "statusDetail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "errorMessage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pageCount": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "chunkCount": {
+            "type": "integer"
+          },
+          "sourceKind": {
+            "type": "string",
+            "enum": [
+              "native",
+              "ocr",
+              "hybrid"
+            ]
+          },
+          "needsOcr": {
+            "type": "boolean"
+          },
+          "ocrPagesUsed": {
+            "type": "integer"
+          },
+          "byteSize": {
+            "type": "integer"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "indexedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status",
+          "chunkCount",
+          "byteSize",
+          "version",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "Citation": {
+        "type": "object",
+        "description": "Resolved provenance for one key statement. Only passages that were actually retrieved can appear here; citations the model invents are stripped server-side.",
+        "properties": {
+          "documentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "documentName": {
+            "type": "string"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "paragraphKey": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "chunkId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sectionTitle": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "snippet": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "documentId",
+          "documentName",
+          "page",
+          "chunkId",
+          "snippet"
+        ],
+        "additionalProperties": false
+      },
+      "ChatMessage": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant",
+              "system"
+            ]
+          },
+          "content": {
+            "type": "string"
+          },
+          "citations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Citation"
+            }
+          },
+          "grounded": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "inputTokens": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "outputTokens": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "latencyMs": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "content",
+          "citations"
+        ],
+        "additionalProperties": false
+      },
+      "RetrievalInfo": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/RetrievalMode"
+          },
+          "candidateCount": {
+            "type": "integer"
+          },
+          "usedCount": {
+            "type": "integer"
+          },
+          "contextTokens": {
+            "type": "integer"
+          },
+          "topScore": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "mode",
+          "candidateCount",
+          "usedCount",
+          "contextTokens",
+          "topScore"
+        ],
+        "additionalProperties": false
+      },
+      "UsageTotals": {
+        "type": "object",
+        "properties": {
+          "inputTokens": {
+            "type": "integer"
+          },
+          "outputTokens": {
+            "type": "integer"
+          },
+          "ocrPages": {
+            "type": "integer"
+          },
+          "costUsd": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "inputTokens",
+          "outputTokens",
+          "ocrPages",
+          "costUsd"
+        ],
+        "additionalProperties": false
+      },
+      "IndexHealthDocument": {
+        "type": "object",
+        "description": "Per-document pipeline health. chunksEmbedded > 0 is what makes a document searchable.",
+        "properties": {
+          "documentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DocumentStatus"
+          },
+          "statusDetail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "errorMessage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pageCount": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "chunkCount": {
+            "type": "integer"
+          },
+          "chunksPresent": {
+            "type": "integer"
+          },
+          "chunksEmbedded": {
+            "type": "integer"
+          },
+          "sourceKind": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "indexedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "documentId",
+          "name",
+          "status",
+          "chunkCount",
+          "chunksPresent",
+          "chunksEmbedded",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "IngestJob": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "documentId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "parse",
+              "ocr",
+              "embed",
+              "reindex",
+              "delete",
+              "embed_batch_poll"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "attempts": {
+            "type": "integer"
+          },
+          "maxAttempts": {
+            "type": "integer"
+          },
+          "nextRunAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastError": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "finishedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "attempts",
+          "maxAttempts",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "EmbeddingBatch": {
+        "type": "object",
+        "description": "An OpenAI Batch API job embedding a bulk upload. Roughly half the synchronous price, with a completion window of up to 24 hours.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "providerBatchId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "submitted",
+              "validating",
+              "in_progress",
+              "finalizing",
+              "completed",
+              "failed",
+              "expired",
+              "cancelled"
+            ]
+          },
+          "chunkCount": {
+            "type": "integer"
+          },
+          "embeddedCount": {
+            "type": "integer"
+          },
+          "documentIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "requestCounts": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "lastError": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "submittedAt": {
+            "type": "string"
+          },
+          "completedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "providerBatchId",
+          "status",
+          "chunkCount",
+          "embeddedCount",
+          "documentIds",
+          "submittedAt"
+        ],
+        "additionalProperties": false
+      },
+      "Actor": {
+        "type": "string",
+        "enum": [
+          "employee",
+          "client"
+        ],
+        "description": "Derived per request from the portal context plus the org role. Never stored."
+      },
+      "Capabilities": {
+        "type": "object",
+        "description": "What the actor may do. Used by the SPA to decide what to RENDER; a false capability means the control is absent from the DOM, not disabled. Every one is re-checked server-side.",
+        "properties": {
+          "readDocuments": {
+            "type": "boolean"
+          },
+          "askQuestions": {
+            "type": "boolean"
+          },
+          "exportAnswers": {
+            "type": "boolean"
+          },
+          "readFolders": {
+            "type": "boolean"
+          },
+          "uploadDocuments": {
+            "type": "boolean"
+          },
+          "deleteDocuments": {
+            "type": "boolean"
+          },
+          "reindexDocuments": {
+            "type": "boolean"
+          },
+          "manageFolders": {
+            "type": "boolean"
+          },
+          "changeSettings": {
+            "type": "boolean"
+          },
+          "viewIndexing": {
+            "type": "boolean"
+          },
+          "viewUsage": {
+            "type": "boolean"
+          },
+          "viewAuditLog": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ClientSettings": {
+        "type": "object",
+        "properties": {
+          "retrievalMode": {
+            "$ref": "#/components/schemas/RetrievalMode"
+          },
+          "maxAnswerTokens": {
+            "type": "integer"
+          },
+          "maxRetrievedTokens": {
+            "type": "integer"
+          },
+          "maxOcrPagesPerUpload": {
+            "type": "integer"
+          },
+          "monthlyTokenBudget": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "monthlyOcrPageBudget": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "ocrTablesEnabled": {
+            "type": "boolean"
+          },
+          "ocrFormsEnabled": {
+            "type": "boolean"
+          },
+          "ocrQueriesEnabled": {
+            "type": "boolean"
+          },
+          "batchEmbeddingEnabled": {
+            "type": "boolean"
+          },
+          "batchEmbeddingMinChunks": {
+            "type": "integer"
+          },
+          "clientId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "clientId",
+          "retrievalMode",
+          "maxAnswerTokens",
+          "maxRetrievedTokens",
+          "maxOcrPagesPerUpload"
+        ],
+        "additionalProperties": false
+      },
+      "SessionResponse": {
+        "type": "object",
+        "properties": {
+          "actor": {
+            "$ref": "#/components/schemas/Actor"
+          },
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "email": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "additionalProperties": false
+          },
+          "portalId": {
+            "type": "string"
+          },
+          "client": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/Capabilities"
+          },
+          "settings": {
+            "type": "object",
+            "description": "Employees receive the full resolved settings with per-key provenance; clients receive only the values that shape their experience."
+          },
+          "usageMonthToDate": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/UsageTotals"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "actor",
+          "user",
+          "portalId",
+          "client",
+          "capabilities",
+          "settings"
+        ],
+        "additionalProperties": false
+      },
+      "SourceConfig": {
+        "type": "object",
+        "description": "Column mapping for a compasses_table source. Table and column names are validated as plain lowercase identifiers before they reach SQL, where identifiers cannot be parameterised.",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "sql_table"
+            ]
+          },
+          "tableName": {
+            "type": "string",
+            "pattern": "^[a-z_][a-z0-9_]*$"
+          },
+          "columns": {
+            "type": "object",
+            "properties": {
+              "externalId": {
+                "type": "string",
+                "pattern": "^[a-z_][a-z0-9_]*$"
+              },
+              "name": {
+                "type": "string",
+                "pattern": "^[a-z_][a-z0-9_]*$"
+              },
+              "file": {
+                "type": "string",
+                "pattern": "^[a-z_][a-z0-9_]*$",
+                "description": "Column holding a stored-file uuid or a readable URL."
+              },
+              "fileUrl": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[a-z_][a-z0-9_]*$",
+                "description": "Column holding a readable URL. Required when `file` holds a uuid: the file service issues a read URL once at upload and it bears no relation to the uuid, and Gate exposes no uuid-to-URL lookup, so without it the bytes are unreachable."
+              },
+              "updatedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[a-z_][a-z0-9_]*$"
+              },
+              "folderPath": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[a-z_][a-z0-9_]*$"
+              },
+              "include": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[a-z_][a-z0-9_]*$"
+              }
+            },
+            "required": [
+              "externalId",
+              "name",
+              "file"
+            ],
+            "additionalProperties": false
+          },
+          "filter": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Employee-authored SQL WHERE fragment, at the same trust level as the table name. Never built from end-user input."
+          }
+        },
+        "required": [
+          "mode",
+          "tableName",
+          "columns"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "parameters": {
+      "PortalContext": {
+        "name": "x-portal-context",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Platform-signed portalFeatureContextToken from the iframe URL. Verified through Gate on every request; a local decode is never trusted. It proves WHERE the request is from, never WHO — identity comes from the caller session."
+      },
+      "DocumentId": {
+        "name": "documentId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "ChatId": {
+        "name": "chatId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "BatchId": {
+        "name": "batchId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "responses": {
+      "TenancyProbe": {
+        "description": "The request carried a client/workspace/portal identifier. Refused rather than ignored.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "PortalRejected": {
+        "description": "Portal context missing, unverifiable, unbound, paused, or the caller is not a member.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "ForbiddenClient": {
+        "description": "FORBIDDEN_CLIENT_ROLE — this action is employee-only.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Not found, or it belongs to another client. Deliberately indistinguishable.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/chats": {
+      "get": {
+        "operationId": "listChats",
+        "summary": "List the chats of this portal",
+        "description": "",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createChat",
+        "summary": "Start a chat",
+        "description": "The client comes from the portal context. An empty documentIds means every indexed document in scope.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "documentIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  },
+                  "retrievalMode": {
+                    "$ref": "#/components/schemas/RetrievalMode"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chats/{chatId}": {
+      "get": {
+        "operationId": "getChat",
+        "summary": "Read a chat transcript and its document scope",
+        "description": "A chat of another client is a 404.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          },
+          {
+            "$ref": "#/components/parameters/ChatId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chat detail"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteChat",
+        "summary": "Delete a chat",
+        "description": "Employee-only.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          },
+          {
+            "$ref": "#/components/parameters/ChatId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenClient"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        }
+      }
+    },
+    "/chats/{chatId}/documents": {
+      "put": {
+        "operationId": "setChatDocuments",
+        "summary": "Replace the document scope of a chat",
+        "description": "Every id must belong to the client of this portal, so a citation can only ever name a document the caller may read.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          },
+          {
+            "$ref": "#/components/parameters/ChatId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Applied scope"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "documentIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                },
+                "required": [
+                  "documentIds"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chats/{chatId}/messages": {
+      "post": {
+        "operationId": "askQuestion",
+        "summary": "Ask a grounded question",
+        "description": "Answers strictly from the retrieved passages, and returns the fixed no-information sentence when nothing relevant is retrieved. Refuses with 429 once the monthly token budget is reached, before any paid call.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          },
+          {
+            "$ref": "#/components/parameters/ChatId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The cited answer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "$ref": "#/components/schemas/ChatMessage"
+                    },
+                    "retrieval": {
+                      "$ref": "#/components/schemas/RetrievalInfo"
+                    },
+                    "notice": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "retrieval"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "429": {
+            "description": "Monthly token budget reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "question": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4000
+                  },
+                  "documentIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  },
+                  "retrievalMode": {
+                    "$ref": "#/components/schemas/RetrievalMode"
+                  }
+                },
+                "required": [
+                  "question"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents": {
+      "get": {
+        "operationId": "listDocuments",
+        "summary": "List the documents of this portal",
+        "description": "Scoped by the verified portal. Clients see only indexed documents; employees also see processing and failed ones, because they are the people who fix them.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Documents",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "documents": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DocumentSummary"
+                      }
+                    },
+                    "ocrConfigured": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "documents"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        }
+      },
+      "post": {
+        "operationId": "uploadDocuments",
+        "summary": "Upload PDFs",
+        "description": "Employee-only. The client id comes from the portal context and never from the form; a tenant key in the form is a TENANCY_PROBE. Ingestion runs on the queue, so this returns 202.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "async",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Per-file outcome"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenClient"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "files": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    }
+                  }
+                },
+                "required": [
+                  "files"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{documentId}": {
+      "get": {
+        "operationId": "getDocument",
+        "summary": "Read one document",
+        "description": "A document of another client is a 404, never a 403.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          },
+          {
+            "$ref": "#/components/parameters/DocumentId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Document"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteDocument",
+        "summary": "Delete a document and its index entries",
+        "description": "Employee-only and irreversible: pages, paragraphs and passages cascade from the document row.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          },
+          {
+            "$ref": "#/components/parameters/DocumentId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenClient"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        }
+      }
+    },
+    "/documents/{documentId}/file": {
+      "get": {
+        "operationId": "getDocumentFile",
+        "summary": "Stream the PDF bytes",
+        "description": "Proxied so the tenancy check applies to the bytes themselves. The file service read URL is public and is never handed to the browser.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          },
+          {
+            "$ref": "#/components/parameters/DocumentId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        }
+      }
+    },
+    "/documents/{documentId}/pages": {
+      "get": {
+        "operationId": "listDocumentPages",
+        "summary": "Extracted text per page",
+        "description": "",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          },
+          {
+            "$ref": "#/components/parameters/DocumentId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pages"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        }
+      }
+    },
+    "/documents/{documentId}/paragraphs": {
+      "get": {
+        "operationId": "listDocumentParagraphs",
+        "summary": "Paragraph text and geometry",
+        "description": "Normalized top-left-origin bounding boxes, so a citation can highlight the exact region it came from.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          },
+          {
+            "$ref": "#/components/parameters/DocumentId"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paragraphs"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        }
+      }
+    },
+    "/documents/{documentId}/reindex": {
+      "post": {
+        "operationId": "reindexDocument",
+        "summary": "Re-run the pipeline from stored bytes",
+        "description": "Employee-only.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "async",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          },
+          {
+            "$ref": "#/components/parameters/DocumentId"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Enqueued"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenClient"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        }
+      }
+    },
+    "/folders": {
+      "get": {
+        "operationId": "listFolders",
+        "summary": "The client’s folder tree",
+        "description": "Both actors. `editable` states whether the caller may change the tree, so the UI does not infer it from the actor.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Folders and an editable flag"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createFolder",
+        "summary": "Create a folder",
+        "description": "Employee-only. Five levels deep at most.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenClient"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "A folder of that name already exists here"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "parentId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/folders/documents/{documentId}": {
+      "put": {
+        "operationId": "moveDocument",
+        "summary": "File a document into a folder",
+        "description": "Employee-only. `folderId: null` moves it to Unfiled. Sets `folder_pinned`, so a source’s folder column stops re-filing it. Never re-indexes — a document’s location has nothing to do with its content.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          },
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Moved"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenClient"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "folderId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "folderId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/folders/{folderId}": {
+      "patch": {
+        "operationId": "updateFolder",
+        "summary": "Rename and/or move a folder",
+        "description": "Employee-only. `parentId` is applied only when the key is present, so a rename does not silently move the folder to the root. A move that would create a cycle or exceed the depth limit is a 400 naming which.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          },
+          {
+            "name": "folderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenClient"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "Name taken among siblings"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "parentId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "uuid"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteFolder",
+        "summary": "Delete a folder",
+        "description": "Employee-only. Documents and subfolders move up to the parent; no document is ever deleted.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          },
+          {
+            "name": "folderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenClient"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "summary": "Liveness check",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "Backend is up",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/detail": {
+      "get": {
+        "operationId": "getHealthDetail",
+        "summary": "Readiness detail",
+        "description": "Reports whether the backend can reach the isolated store, and whether OCR and OpenAI are configured. Operator diagnostic; also used by the e2e suite to self-skip specs whose dependency is unset.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "Store reachable"
+          },
+          "503": {
+            "description": "Store unreachable"
+          }
+        }
+      }
+    },
+    "/indexing": {
+      "get": {
+        "operationId": "getIndexingSnapshot",
+        "summary": "Pipeline health for this client",
+        "description": "Employee-only. One batched read, so the whole snapshot comes from a single transaction and cannot contradict itself.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Snapshot"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenClient"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        }
+      }
+    },
+    "/indexing/batches/{batchId}/cancel": {
+      "post": {
+        "operationId": "cancelEmbeddingBatch",
+        "summary": "Cancel an open embedding batch",
+        "description": "Employee-only. Vectors already applied are kept.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          },
+          {
+            "$ref": "#/components/parameters/BatchId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cancelled"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenClient"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        }
+      }
+    },
+    "/indexing/batches/{batchId}/poll": {
+      "post": {
+        "operationId": "pollEmbeddingBatch",
+        "summary": "Poll an embedding batch now",
+        "description": "Employee-only.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          },
+          {
+            "$ref": "#/components/parameters/BatchId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Outcome"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenClient"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        }
+      }
+    },
+    "/indexing/reindex-unsearchable": {
+      "post": {
+        "operationId": "reindexUnsearchable",
+        "summary": "Re-index every unsearchable document",
+        "description": "Employee-only.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Enqueued"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenClient"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        }
+      }
+    },
+    "/indexing/retry-failed": {
+      "post": {
+        "operationId": "retryFailedJobs",
+        "summary": "Retry failed ingest jobs",
+        "description": "Employee-only. Resets attempts and requeues.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Requeued"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenClient"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        }
+      }
+    },
+    "/session": {
+      "get": {
+        "operationId": "getSession",
+        "summary": "Bootstrap the portal session",
+        "description": "Resolves the verified portal to exactly one client and derives the actor. Returns the capabilities the SPA renders from. Replaces the removed /workspaces routes: there is no client list and no client creation.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        }
+      }
+    },
+    "/session/audit": {
+      "get": {
+        "operationId": "listAuditLog",
+        "summary": "Audit trail for this client",
+        "description": "Employee-only.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Audit entries"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenClient"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        }
+      }
+    },
+    "/session/settings": {
+      "get": {
+        "operationId": "getClientSettings",
+        "summary": "Read effective settings with provenance",
+        "description": "Employee-only. Precedence is portal override, then client settings, then defaults; each key reports which layer it came from.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Settings and month-to-date usage"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenClient"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateClientSettings",
+        "summary": "Update the client settings layer",
+        "description": "Employee-only. Writes the client layer rather than the portal override, which would silently shadow it.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated settings"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenClient"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sources": {
+      "get": {
+        "operationId": "listSources",
+        "summary": "Sources bound to this portal, and the client’s available ones",
+        "description": "Employee-only. Returns both lists in one call because the admin screen shows what the portal is bound to alongside what it could be bound to.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bound and available sources"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenClient"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createSource",
+        "summary": "Create a compasses_table source",
+        "description": "Employee-only. The config is validated before the row is written, so an unusable mapping fails in the form rather than as a failed sync run later.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenClient"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "syncIntervalMinutes": {
+                    "type": "integer",
+                    "minimum": 5
+                  },
+                  "config": {
+                    "$ref": "#/components/schemas/SourceConfig"
+                  }
+                },
+                "required": [
+                  "name",
+                  "config"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sources/preview": {
+      "post": {
+        "operationId": "previewSource",
+        "summary": "Resolve a source config without saving it",
+        "description": "Employee-only. Returns the row count and a capped sample so a mis-mapped column is visible as a list of names rather than hidden in a JSON blob.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Total and sample rows"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenClient"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "config": {
+                    "$ref": "#/components/schemas/SourceConfig"
+                  }
+                },
+                "required": [
+                  "config"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sources/{sourceId}": {
+      "patch": {
+        "operationId": "updateSource",
+        "summary": "Rename a source, retime it, or replace its config",
+        "description": "Employee-only. `syncEnabled` governs scheduling only — \"Sync now\" still runs on a paused source.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          },
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Source id. Must belong to this portal’s client."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenClient"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "syncEnabled": {
+                    "type": "boolean"
+                  },
+                  "syncIntervalMinutes": {
+                    "type": "integer",
+                    "minimum": 5
+                  },
+                  "config": {
+                    "$ref": "#/components/schemas/SourceConfig"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sources/{sourceId}/bind": {
+      "post": {
+        "operationId": "bindSource",
+        "summary": "Bind a source to this portal",
+        "description": "Employee-only.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          },
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Source id. Must belong to this portal’s client."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bound"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenClient"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "unbindSource",
+        "summary": "Unbind a source from this portal",
+        "description": "Employee-only. Never deletes documents: rows whose last binding is removed become orphaned — hidden from clients, still visible to employees.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          },
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Source id. Must belong to this portal’s client."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Unbound"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenClient"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        }
+      }
+    },
+    "/sources/{sourceId}/sync": {
+      "post": {
+        "operationId": "syncSourceNow",
+        "summary": "Queue a sync for this source",
+        "description": "Employee-only. Enqueued rather than run inline: a first sync of a large table parses and embeds every document, which is minutes of work against a 30s request ceiling.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "async",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PortalContext"
+          },
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Source id. Must belong to this portal’s client."
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Queued"
+          },
+          "400": {
+            "$ref": "#/components/responses/TenancyProbe"
+          },
+          "401": {
+            "$ref": "#/components/responses/PortalRejected"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenClient"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/PortalRejected"
+          }
+        }
+      }
+    },
+    "/webhooks/ingest-drain-8fbc21d7a4e35b90": {
+      "post": {
+        "operationId": "drainIngestQueue",
+        "summary": "Drain the ingestion queue",
+        "description": "Safety net for jobs left behind when a replica is recycled mid-run. Idempotent. Under /api/webhooks/ so a scheduled caller reaches it without an app token; the path segment is unguessable.",
+        "x-fusebase-visibility": "private",
+        "x-fusebase-execution-mode": "sync",
+        "responses": {
+          "200": {
+            "description": "Number of jobs processed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "processed": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "processed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

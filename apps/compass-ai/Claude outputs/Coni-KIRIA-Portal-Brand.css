@@ -1,0 +1,175 @@
+/* ------------------------------------------------------------------
+   KIRIA Advisory Partners — portal brand layer
+   Exact brand hex, matching apps/compass-ai (src/theme/kiria-tokens.ts)
+   and the KIRIA brand system.
+
+   ink #010104 · blue #004AAD · teal #0065A6 · sky #6BB9F0
+   cobalt #3432CC · yellow #F6F470 · red #D7263D · paper-gray #F4F6FA
+   Nunito Sans · card radius 10px · control radius 8px
+
+   Written to the portal style contract v1.0.0: selectors are relative,
+   the gate nests them under #main-scrolling-container, and body/html/:root
+   are deliberately never targeted.
+   NOTE: FuseBase only renders this on a portal served from a custom CNAME.
+   ------------------------------------------------------------------ */
+
+.container,
+[data-portal="note-content"],
+[data-portal="page-card"],
+[data-portal="sidebar"] {
+  font-family: 'Nunito Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* --- Header: the navy → cobalt gradient, the one place it is used --- */
+.header,
+.header-wrapper {
+  background: linear-gradient(90deg, #004AAD 0%, #3432CC 100%);
+  border-bottom: none;
+}
+
+.header-content,
+.header-content a {
+  color: #FFFFFF;
+}
+
+.header-content h1,
+.header-content h2 {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #FFFFFF;
+}
+
+/* --- Sidebar: ink ground, quiet until active --- */
+[data-portal="sidebar"] {
+  background: #010104;
+  border-right: 1px solid #202224;
+}
+
+.sidebar-menu-item {
+  color: #CFD1D5;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.sidebar-menu-item:hover {
+  background: #202224;
+  color: #FFFFFF;
+}
+
+/* Yellow is the one high-emphasis mark in the system: it marks exactly
+   one thing here — where you are. */
+.sidebar-menu-item-active {
+  background: #004AAD;
+  color: #FFFFFF;
+  font-weight: 700;
+  box-shadow: inset 3px 0 0 0 #F6F470;
+}
+
+/* --- Cards and panels --- */
+[data-portal="page-card"] {
+  background: #FFFFFF;
+  border: 1px solid #E1E3E7;
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(1, 1, 4, 0.04);
+}
+
+[data-portal="page-card"]:hover {
+  border-color: #BED8FF;
+  box-shadow: 0 4px 12px rgba(0, 74, 173, 0.08);
+}
+
+/* --- Body copy --- */
+[data-portal="note-content"] {
+  color: #202224;
+  line-height: 1.6;
+}
+
+[data-portal="note-content"] h1,
+[data-portal="note-content"] h2,
+[data-portal="note-content"] h3 {
+  color: #010104;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+/* Teal carries interaction, blue carries structure — two meanings, two colours. */
+[data-portal="note-content"] a {
+  color: #0065A6;
+  text-decoration-color: #93C3EE;
+  text-underline-offset: 2px;
+}
+
+[data-portal="note-content"] a:hover {
+  color: #00558D;
+}
+
+[data-portal="note-content"] blockquote {
+  border-left: 3px solid #004AAD;
+  padding-left: 16px;
+  color: #515256;
+}
+
+/* The highlighter, KIRIA's signature emphasis device. Yellow under ink
+   reads at ~18:1 — it is a ground, never a text colour. */
+[data-portal="note-content"] mark {
+  background: #F6F470;
+  color: #010104;
+  padding: 0 4px;
+  border-radius: 3px;
+}
+
+[data-portal="note-content"] code {
+  background: #F4F6FA;
+  color: #00347F;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+/* --- Breadcrumbs --- */
+[data-portal="breadcrumbs"] {
+  color: #6A6C6F;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+[data-portal="breadcrumbs"] a {
+  color: #0065A6;
+}
+
+/* --- Search --- */
+[data-portal="search"] input {
+  border: 1px solid #CFD1D5;
+  border-radius: 8px;
+  background: #FFFFFF;
+  color: #010104;
+}
+
+[data-portal="search"] input:focus {
+  border-color: #004AAD;
+  box-shadow: 0 0 0 3px rgba(0, 74, 173, 0.18);
+  outline: none;
+}
+
+/* --- Footer --- */
+[data-portal="footer"] {
+  background: #010104;
+  color: #A9ABAE;
+  border-top: 1px solid #202224;
+}
+
+[data-portal="footer"] a {
+  color: #6BB9F0;
+}
+
+/* --- Mobile --- */
+.mobile-menu-button {
+  color: #FFFFFF;
+}
+
+@media (max-width: 768px) {
+  .header,
+  .header-wrapper {
+    background: linear-gradient(160deg, #004AAD 0%, #3432CC 100%);
+  }
+}

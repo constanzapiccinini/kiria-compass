@@ -1,0 +1,165 @@
+{
+  "bundleVersion": "26",
+  "alias": "compasses",
+  "engine": "postgres",
+  "storeType": "sql",
+  "_checksumNote": "Checksums are SHA-256 of canonical SQL bytes (CRLF normalized to LF, trailing whitespace trimmed), produced by buildSqlMigrationBundle().",
+  "migrations": [
+    {
+      "version": 1,
+      "name": "init",
+      "file": "0001_init.sql",
+      "checksum": "9038b3b1fa8d05d984e645b0ac674bba93edb82a6a8c31c115bbc4bb8bc4fff1"
+    },
+    {
+      "version": 2,
+      "name": "batch_embeddings",
+      "file": "0002_batch_embeddings.sql",
+      "checksum": "498ac94f14ad6d6da6a2c1040eb77a3d1c21252177e26031659f13450b506c38"
+    },
+    {
+      "version": 3,
+      "name": "portal_tenancy",
+      "file": "0003_portal_tenancy.sql",
+      "checksum": "df4900847affac95e68ea9cdd61035fe54dd7d776e5867f8d950185ef72b748a"
+    },
+    {
+      "version": 4,
+      "name": "sources_folders_alerts",
+      "file": "0004_sources_folders_alerts.sql",
+      "checksum": "6c5cead748509f8719ea7b7340e9648ba158c03cb52e440ea0156e58dbe52145"
+    },
+    {
+      "version": 5,
+      "name": "alert_trace_steps",
+      "file": "0005_alert_trace_steps.sql",
+      "checksum": "0cfae8bbd7630fa5499c2fb10e60121053de001d43c3294dd118f23a1a6f0a53"
+    },
+    {
+      "version": 6,
+      "name": "alert_dedupe_open_only",
+      "file": "0006_alert_dedupe_open_only.sql",
+      "checksum": "69413731bdcc6c8a4a85fef51513d159412cd35aa2645bf3c99ecdf65f4db8c5"
+    },
+    {
+      "version": 7,
+      "name": "rls_org_isolation",
+      "file": "0007_rls_org_isolation.sql",
+      "checksum": "1ed04893131e4cff27067242e81b285aeb0fc8ec0babf60a3cce052ef43ec215"
+    },
+    {
+      "version": 8,
+      "name": "tenancy_columns",
+      "file": "0008_tenancy_columns.sql",
+      "checksum": "c97859fe6bb04b4750e2c4e7dc024aef8e379bab94a3a8e7ae9884b2db59e408"
+    },
+    {
+      "version": 9,
+      "name": "rls_client_isolation",
+      "file": "0009_rls_client_isolation.sql",
+      "checksum": "c053073469c3f5eefe995ecf7770bdf21d6b1e97b7f30b057bc8a712fc513df4"
+    },
+    {
+      "version": 10,
+      "name": "rls_scope_indexes",
+      "file": "0010_rls_scope_indexes.sql",
+      "checksum": "914c90e1aeb8d8c453aae83224fab4334bdaba8b98d9b39e90b648d4fdf88f60"
+    },
+    {
+      "version": 11,
+      "name": "rls_force",
+      "file": "0011_rls_force.sql",
+      "checksum": "98b48a60a1e0fec158f31ac69c01e62d9ea31565fba31feb2619c1076c8ccfde"
+    },
+    {
+      "version": 12,
+      "name": "portal_registrations",
+      "file": "0012_portal_registrations.sql",
+      "checksum": "55bf10df2493c08160c75b9a144baaf89f33da2d224bcfbc214c224f795814f2"
+    },
+    {
+      "version": 13,
+      "name": "libraries",
+      "file": "0013_libraries.sql",
+      "checksum": "d3bad48d80b5bd14da4186d2492f3a70db603684f7f3a31bd55d45d267d0f615"
+    },
+    {
+      "version": 14,
+      "name": "rls_library_reads",
+      "file": "0014_rls_library_reads.sql",
+      "checksum": "c9b350f290b460a447e3379aa8dd16797613a1822311628e28b36606e1eae43f"
+    },
+    {
+      "version": 15,
+      "name": "library_folders",
+      "file": "0015_library_folders.sql",
+      "checksum": "968612721e3a6b9b5ca53199cefff5b0d6fb52ff47cc02e326fd7e2303347757"
+    },
+    {
+      "version": 16,
+      "name": "portal_reconcile",
+      "file": "0016_portal_reconcile.sql",
+      "checksum": "65c0513a6a8e28f72721af96837532fd650708c3527a08a4ddd6337608efb8ed"
+    },
+    {
+      "version": 17,
+      "name": "portal_reconcile_runs",
+      "file": "0017_portal_reconcile_runs.sql",
+      "checksum": "cc581c34295a891371dced09481811606549eed5d872b7563d0e8b5acc0bbe56"
+    },
+    {
+      "version": 18,
+      "name": "library_has_no_source",
+      "file": "0018_library_has_no_source.sql",
+      "checksum": "7c05172b194e3f45fe001c36e6902a6a33fdb805526620a1e4b8d163c4f1c376"
+    },
+    {
+      "version": 19,
+      "name": "prune_sync_columns",
+      "file": "0019_prune_sync_columns.sql",
+      "checksum": "04d8bd6f68b80e296f3229e11c7274e05c3caa984f82bc3d69cc05e87d2ca8e5"
+    },
+    {
+      "version": 20,
+      "name": "insights",
+      "file": "0020_insights.sql",
+      "checksum": "a89e8fe40db0b8d4b0be07db4620a7e12fbb16c65b16c805bf7346b365ba48ef"
+    },
+    {
+      "version": 21,
+      "name": "analytics_user_salt",
+      "file": "0021_analytics_user_salt.sql",
+      "checksum": "e4aaf92eb9ef1b9db88896e2f7068404f3205224045856373e2147637cf4fcec"
+    },
+    {
+      "version": 22,
+      "name": "org_wide_jobs",
+      "file": "0022_org_wide_jobs.sql",
+      "checksum": "1b8097b573d1e48fc8e615471d2d0c20607cf8db26b6df51aa400ff2429a1ca1"
+    },
+    {
+      "version": 23,
+      "name": "insight_cluster_job",
+      "file": "0023_insight_cluster_job.sql",
+      "checksum": "8679fe1690946dfb74617c3c33dd53f0dc3399ed16c9e267822d9d056be4395e"
+    },
+    {
+      "version": 24,
+      "name": "insight_flag_job",
+      "file": "0024_insight_flag_job.sql",
+      "checksum": "23ee9ade3bd18d4b262d025ae02f4aae517188cc1a0b4c92a010188c1b2bd0f6"
+    },
+    {
+      "version": 25,
+      "name": "flag_screened_at",
+      "file": "0025_flag_screened_at.sql",
+      "checksum": "1d2f4b2da84382bb8e3f6a022c12a87c2fa9bfa64dba911317d23dce1a920bd4"
+    },
+    {
+      "version": 26,
+      "name": "org_wide_usage",
+      "file": "0026_org_wide_usage.sql",
+      "checksum": "fe2fe918ce640722a4e255cbdbcb5d4d33c96de0d97b497f5de8dd3152d89ac9"
+    }
+  ]
+}

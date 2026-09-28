@@ -1,0 +1,53 @@
+# E2E suite on GitLab CI — copy this job into your root .gitlab-ci.yml
+# (or `include: local: tests/e2e/ci/gitlab-e2e.yml` and add the stage).
+#
+# Tests split by ENVIRONMENT × APP. Contract per cell:
+#   FUSEBASE_ENV=<env> npx playwright test --project=<app>
+#   → exit code + tests/e2e/reports/<env>.json (artifact).
+#
+# Add an app: give it a `key` in fusebase.json, a specs/<key>/ folder, and a
+# line in the APP list of the matrix below. Adjust the FUSEBASE_ENV list to
+# your environments; keep protected (production) envs on schedule/manual only.
+#
+# CI/CD variables to configure (Settings → CI/CD → Variables, masked):
+#   GATE_MCP_TOKEN_<ENV>            e.g. GATE_MCP_TOKEN_DEV, GATE_MCP_TOKEN_PROD_TEST
+#                                   (env name uppercased, "-" → "_"; mint with
+#                                   `fusebase env tokens --env <name>` and copy
+#                                   from .env.<name>)
+#   PW_USER_<KEY>_PASSWORD[_<ENV>]  only for password-based fixtures
+#                                   (magic-link sign-in needs none)
+
+e2e:
+  stage: test
+  image: mcr.microsoft.com/playwright:v1.49.0-noble
+  parallel:
+    matrix:
+      - FUSEBASE_ENV: ["dev"]
+        # One entry per app key in fusebase.json, plus "integration" for
+        # cross-app / portal flows (present when specs/integration/ exists).
+        APP: ["probe"]
+      # - FUSEBASE_ENV: ["prod-test"]   # enable when the env + fixtures exist
+      #   APP: ["probe", "app-b", "integration"]
+  cache:
+    key:
+      files:
+        - tests/e2e/package-lock.json
+    paths:
+      - tests/e2e/node_modules/
+  script:
+    - cd tests/e2e
+    - npm ci --prefer-offline
+    - npx playwright install chromium # browser matching the locked version
+    - npx playwright test --project="$APP"
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - tests/e2e/reports/
+      - tests/e2e/test-results/
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - when: manual
+      allow_failure: true
